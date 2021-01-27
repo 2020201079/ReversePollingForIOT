@@ -6,8 +6,6 @@ import socket
 import json
 import threading
 
-
-
 def printError(msg):
     print(msg)
     exit()
@@ -53,7 +51,6 @@ def jsonify(functions):
 def handleRPCConn(s,rpc):
     while True:
         conn, addr = s.accept()
-
         with conn:
             print('Connected by', addr)
             while True:
@@ -72,25 +69,33 @@ def handleRPCConn(s,rpc):
                     ans = methodToCall(*funcDetails['args']) # 
                     conn.sendall(str.encode(str(ans)))
 
+def handleReversePollConn(conn,addr):
+    with conn:
+        print('Connected by', addr)
+        while True:
+            data = conn.recv(1024) # will recieve sensor id can be 1 and 2
+            data = data.decode('utf-8')
+            sensorID = int(data)
+            if(sensorID != 1 and sensorID != 2):
+                print("This sensor is not registered with intermediate server" + sensorID)
+                conn.sendall(str.encode("no"))
+            elif(intermediateServer.needDataFromSensor[sensorID] == True):
+                conn.sendall(str.encode("fetch data"))
+                sensorData = conn.recv(1024).decode('utf-8')
+                intermediateServer.sensorData[sensorID] = sensorData
+                intermediateServer.dataReady[sensorID] = True
+            else:
+                conn.sendall(str.encode("no"))
+
 def handleReversePoll(spoll):
+    threads = []
     while True:
         conn, addr = spoll.accept()
+        t = threading.Thread(target=handleReversePollConn,args=(conn,addr,))
+        threads.append(t)
+        t.start()
 
-        with conn:
-            print('Connected by', addr)
-            while True:
-                data = conn.recv(1024) # will recieve sensor id can be 1 and 2
-                sensorID = int(data)
-                if(sensorID != 1 or sensorID != 2):
-                    print("This sensor is not registered with intermediate server")
-                    conn.sendall(str.encode("no"))
-                elif(intermediateServer.needDataFromSensor[sensorID] == True):
-                    conn.sendall(str.encode("fetch data"))
-                    sensorData = conn.recv(1024)
-                    intermediateServer.sensorData[sensorID] = sensorData
-                    intermediateServer.dataReady[sensorID] = True
-                else:
-                    conn.sendall(str.encode("no"))
+
                 
 
 def main():
@@ -106,8 +111,8 @@ def main():
     spoll = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
     PORTReversePoll = 12346
     spoll.bind(('127.0.0.1',PORTReversePoll))
-    s.listen()
-    t2 = threading.Thread(target=handleReversePoll,args=(spoll))
+    spoll.listen()
+    t2 = threading.Thread(target=handleReversePoll,args=(spoll,))
     t2.start()
 
     
