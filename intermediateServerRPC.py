@@ -75,12 +75,12 @@ def handleReversePollConn(conn,addr):
         while True:
             data = conn.recv(1024) # will recieve sensor id can be 1 and 2
             data = data.decode('utf-8')
-            sensorID = int(data)
-            if(sensorID != 1 and sensorID != 2):
-                print("This sensor is not registered with intermediate server" + sensorID)
-                conn.sendall(str.encode("no"))
-            elif(intermediateServer.needDataFromSensor[sensorID] == True):
-                conn.sendall(str.encode("fetch data"))
+            if(data == "request" and (intermediateServer.needDataFromSensor[1] == True or intermediateServer.needDataFromSensor[2] == True)):
+                if intermediateServer.needDataFromSensor[1] == True :
+                    sensorID = 1
+                else:
+                    sensorID = 2
+                conn.sendall(str.encode(str(sensorID)))
                 sensorData = conn.recv(1024).decode('utf-8')
                 intermediateServer.sensorData[sensorID] = sensorData
                 intermediateServer.dataReady[sensorID] = True
